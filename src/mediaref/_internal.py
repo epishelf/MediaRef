@@ -5,14 +5,13 @@ from __future__ import annotations
 import hashlib
 import io
 from pathlib import Path
-from typing import Any, Mapping, Optional, Union
+from typing import Any, Mapping, Optional
 from urllib.request import url2pathname
 
 import fsspec
 import numpy as np
 import numpy.typing as npt
 import PIL.Image
-import PIL.ImageOps
 
 NANOSECOND = 1_000_000_000  # 1 second in nanoseconds
 
@@ -132,7 +131,7 @@ def resolve_video_source(uri: str) -> str:
 def load_image_as_rgba(
     path_or_uri: str,
     *,
-    decoder: str = "pillow",
+    decoder: str = "tensorcodec",
     decoder_options: Optional[Mapping[str, Any]] = None,
     storage_options: Optional[Mapping[str, Any]] = None,
 ) -> npt.NDArray[np.generic]:
@@ -140,8 +139,8 @@ def load_image_as_rgba(
 
     Args:
         path_or_uri: File path, URL, or data URI.
-        decoder: Image decoder backend (``"pillow"`` or ``"torchcodec"``).
-        decoder_options: Options passed to TorchCodec's ``decode_image``.
+        decoder: Image decoder backend (``"tensorcodec"`` or ``"torchcodec"``).
+        decoder_options: Options passed to the backend's ``decode_image``.
         storage_options: Credentials and backend options passed to fsspec.
 
     Returns:
@@ -152,22 +151,20 @@ def load_image_as_rgba(
         FileNotFoundError: If local file doesn't exist
     """
     try:
-        if decoder == "torchcodec":
-            return _load_torchcodec_image_as_rgba(
-                path_or_uri,
-                decoder_options=decoder_options,
-                storage_options=storage_options,
-            )
-        if decoder != "pillow":
-            raise ValueError(f"Unknown image decoder backend: {decoder}. Must be 'pillow' or 'torchcodec'")
-        if decoder_options:
-            raise ValueError("image decoder options are only supported by the TorchCodec backend")
+        if decoder not in ("tensorcodec", "torchcodec"):
+            raise ValueError(f"Unknown image decoder backend: {decoder}. Must be 'tensorcodec' or 'torchcodec'")
         if path_or_uri.startswith("data:"):
             from .data_uri import DataURI
 
-            return DataURI.from_uri(path_or_uri).to_ndarray(format="rgba")
-        pil_image = _load_pil_image(path_or_uri, storage_options=storage_options)
-        return np.array(pil_image.convert("RGBA"))
+            source: str | bytes = DataURI.from_uri(path_or_uri).decoded_data
+        elif is_cloud_uri(path_or_uri):
+            with open_cloud(path_or_uri, storage_options=storage_options) as f:
+                source = f.read()
+        else:
+            source = _resolve_to_local_path(path_or_uri)
+        if decoder == "torchcodec":
+            return _decode_torchcodec_image_as_rgba(source, decoder_options)
+        return decode_image_as_rgba(source, decoder_options)
     except FileNotFoundError:
         raise
     except ImportError:
@@ -176,11 +173,38 @@ def load_image_as_rgba(
         raise ValueError(f"Failed to load image from {path_or_uri}: {e}") from e
 
 
-def _load_torchcodec_image_as_rgba(
-    path_or_uri: str,
-    *,
+def _image_options(decoder_options: Optional[Mapping[str, Any]]) -> dict[str, Any]:
+    options = dict(decoder_options or {})
+    if "mode" in options:
+        raise ValueError("MediaRef controls the image decoder's mode; use to_ndarray(format=...) instead")
+    return options
+
+
+def _chw_to_rgba(array: npt.NDArray[np.generic], backend: str) -> npt.NDArray[np.generic]:
+    """Normalize a CHW image (or NCHW animation; first frame) to RGBA HWC."""
+    if array.ndim == 4:
+        array = array[0]
+    if array.ndim != 3 or array.shape[0] != 4:
+        raise ValueError(f"{backend} returned an unexpected image shape: {array.shape}")
+    return np.ascontiguousarray(np.moveaxis(array, 0, -1))
+
+
+def decode_image_as_rgba(
+    source: str | bytes,
+    decoder_options: Optional[Mapping[str, Any]] = None,
+) -> npt.NDArray[np.generic]:
+    """Decode an encoded image (path or bytes) with TensorCodec to RGBA HWC.
+
+    TensorCodec applies EXIF (JPEG/PNG/WebP) and AVIF orientation.
+    """
+    from tensorcodec.decoders import decode_image
+
+    return _chw_to_rgba(decode_image(source, mode="RGB_ALPHA", **_image_options(decoder_options)), "TensorCodec")
+
+
+def _decode_torchcodec_image_as_rgba(
+    source: str | bytes,
     decoder_options: Optional[Mapping[str, Any]],
-    storage_options: Optional[Mapping[str, Any]],
 ) -> npt.NDArray[np.generic]:
     """Decode an image through TorchCodec 0.16+ and normalize CHW to RGBA HWC."""
     try:
@@ -191,32 +215,13 @@ def _load_torchcodec_image_as_rgba(
             "Install with: pip install 'mediaref[torchcodec]'"
         ) from e
 
-    options = dict(decoder_options or {})
-    if "mode" in options:
-        raise ValueError("MediaRef controls TorchCodec's image mode; use to_ndarray(format=...) instead")
-
-    if path_or_uri.startswith("data:"):
-        from .data_uri import DataURI
-
-        source: str | bytes = DataURI.from_uri(path_or_uri).decoded_data
-    elif is_cloud_uri(path_or_uri):
-        with open_cloud(path_or_uri, storage_options=storage_options) as f:
-            source = f.read()
-    else:
-        source = _resolve_to_local_path(path_or_uri)
-
-    tensor = decode_image(source, mode="RGB_ALPHA", **options)
+    tensor = decode_image(source, mode="RGB_ALPHA", **_image_options(decoder_options))
     if hasattr(tensor, "detach"):
         tensor = tensor.detach()
     if hasattr(tensor, "cpu"):
         tensor = tensor.cpu()
     array = tensor.numpy() if hasattr(tensor, "numpy") else np.asarray(tensor)
-    if array.ndim == 4:
-        array = array[0]
-    if array.ndim != 3 or array.shape[0] != 4:
-        raise ValueError(f"TorchCodec returned an unexpected image shape: {array.shape}")
-    rgba = np.moveaxis(array, 0, -1)
-    return _apply_exif_orientation(rgba, source)
+    return _apply_exif_orientation(_chw_to_rgba(array, "TorchCodec"), source)
 
 
 def _apply_exif_orientation(
@@ -248,32 +253,6 @@ def _apply_exif_orientation(
     elif orientation == 8:
         array = np.rot90(array, 1)
     return np.ascontiguousarray(array)
-
-
-def _load_pil_image(
-    image: Union[str, PIL.Image.Image],
-    storage_options: Optional[Mapping[str, Any]] = None,
-) -> PIL.Image.Image:
-    """Load image to PIL Image."""
-    if isinstance(image, str):
-        if is_cloud_uri(image):
-            # PIL needs seek (magic-byte detection); fsspec's HTTPFile is
-            # streaming-only when the server doesn't advertise byte-range
-            # support. Materializing bytes once keeps loading robust across
-            # all backends (s3, gs, hf, http(s) chunked, …).
-            with open_cloud(image, storage_options=storage_options) as f:
-                data = f.read()
-            image = PIL.Image.open(io.BytesIO(data))
-            image.load()
-        else:
-            image = PIL.Image.open(_resolve_to_local_path(image))
-    elif not isinstance(image, PIL.Image.Image):
-        raise ValueError(
-            "Incorrect format used for the image. Should be a URL linking to an image, a local path, or a PIL image."
-        )
-
-    image = PIL.ImageOps.exif_transpose(image)
-    return image.convert("RGBA")
 
 
 # ============================================================================

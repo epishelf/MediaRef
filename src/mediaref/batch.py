@@ -131,7 +131,7 @@ def batch_decode(
     *,
     output_format: Literal["rgb", "native"] = "rgb",
     decoder_options: Optional[Mapping[str, Any]] = None,
-    image_decoder: Literal["pillow", "torchcodec"] = "pillow",
+    image_decoder: Literal["tensorcodec", "torchcodec"] = "tensorcodec",
     image_decoder_options: Optional[Mapping[str, Any]] = None,
     storage_options: Optional[Mapping[str, Any]] = None,
     allow_images: bool = False,
@@ -155,8 +155,8 @@ def batch_decode(
             For TensorCodec/TorchCodec this includes options such as ``device``, ``seek_mode``,
             ``num_ffmpeg_threads``, and ``dimension_order``. These options apply to
             video refs only.
-        image_decoder: Image decoder backend (``'pillow'`` or ``'torchcodec'``).
-        image_decoder_options: Options passed to TorchCodec's ``decode_image``.
+        image_decoder: Image decoder backend (``'tensorcodec'`` (default) or ``'torchcodec'``).
+        image_decoder_options: Options passed to the image backend's ``decode_image``.
         storage_options: Credentials and backend options passed to fsspec for
             image and video URIs.
         allow_images: If ``True``, image refs are accepted and decoded individually.

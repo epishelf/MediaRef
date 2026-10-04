@@ -192,7 +192,7 @@ class MediaRef(BaseModel):
         *,
         decoder: Literal["tensorcodec", "pyav", "torchcodec"] = "tensorcodec",
         decoder_options: Optional[Mapping[str, Any]] = None,
-        image_decoder: Literal["pillow", "torchcodec"] = "pillow",
+        image_decoder: Literal["tensorcodec", "torchcodec"] = "tensorcodec",
         image_decoder_options: Optional[Mapping[str, Any]] = None,
         storage_options: Optional[Mapping[str, Any]] = None,
     ) -> npt.NDArray[np.generic]:
@@ -210,7 +210,7 @@ class MediaRef(BaseModel):
             decoder: Video decoder backend. Ignored for image refs.
             decoder_options: Options passed to the video decoder constructor.
             image_decoder: Image decoder backend. Ignored for video refs.
-            image_decoder_options: Options passed to TorchCodec's ``decode_image``.
+            image_decoder_options: Options passed to the image backend's ``decode_image``.
             storage_options: Credentials and backend options passed to fsspec.
         Returns:
             Numpy ndarray in requested format
@@ -265,7 +265,7 @@ class MediaRef(BaseModel):
         *,
         decoder: Literal["tensorcodec", "pyav", "torchcodec"] = "tensorcodec",
         decoder_options: Optional[Mapping[str, Any]] = None,
-        image_decoder: Literal["pillow", "torchcodec"] = "pillow",
+        image_decoder: Literal["tensorcodec", "torchcodec"] = "tensorcodec",
         image_decoder_options: Optional[Mapping[str, Any]] = None,
         storage_options: Optional[Mapping[str, Any]] = None,
     ) -> PIL.Image.Image:
@@ -279,7 +279,7 @@ class MediaRef(BaseModel):
             decoder: Video decoder backend. Ignored for image refs.
             decoder_options: Options passed to the video decoder constructor.
             image_decoder: Image decoder backend. Ignored for video refs.
-            image_decoder_options: Options passed to TorchCodec's ``decode_image``.
+            image_decoder_options: Options passed to the image backend's ``decode_image``.
             storage_options: Credentials and backend options passed to fsspec.
 
         Returns:
@@ -318,7 +318,7 @@ class MediaRef(BaseModel):
         *,
         decoder: Literal["tensorcodec", "pyav", "torchcodec"] = "tensorcodec",
         decoder_options: Optional[Mapping[str, Any]] = None,
-        image_decoder: Literal["pillow", "torchcodec"] = "pillow",
+        image_decoder: Literal["tensorcodec", "torchcodec"] = "tensorcodec",
         image_decoder_options: Optional[Mapping[str, Any]] = None,
         storage_options: Optional[Mapping[str, Any]] = None,
     ) -> npt.NDArray[np.generic]:

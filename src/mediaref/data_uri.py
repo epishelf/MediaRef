@@ -12,8 +12,10 @@ import numpy.typing as npt
 import PIL.Image
 from pydantic import BaseModel, Field, model_validator
 
+from ._internal import decode_image_as_rgba
+
 # ============================================================================
-# Internal image encoding/decoding functions (cv2-based for performance)
+# Internal image encoding (cv2-based for performance)
 # ============================================================================
 
 
@@ -63,40 +65,9 @@ def _encode_image_to_bytes(
 
 
 def _decode_image_to_rgba(image_bytes: bytes) -> npt.NDArray[np.uint8]:
-    """Decode image bytes to RGBA numpy array using cv2.
-
-    Args:
-        image_bytes: Encoded image data
-
-    Returns:
-        RGBA numpy array (H, W, 4)
-
-    Note:
-        If the image has an alpha channel, it is preserved.
-        If not, alpha channel is added with full opacity (255).
-    """
+    """Decode image bytes to RGBA (H, W, 4) with TensorCodec; opaque alpha is added if absent."""
     try:
-        nparr = np.frombuffer(image_bytes, np.uint8)
-        # Use IMREAD_UNCHANGED to preserve alpha channel if present
-        img_array = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
-
-        if img_array is None:
-            raise ValueError("Failed to decode image data")
-
-        # Convert to RGBA based on input format
-        if img_array.ndim == 2:
-            # Grayscale - convert to RGBA
-            rgba_array: npt.NDArray[np.uint8] = cv2.cvtColor(img_array, cv2.COLOR_GRAY2RGBA)  # type: ignore[assignment]
-        elif img_array.shape[2] == 3:
-            # BGR - convert to RGBA
-            rgba_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2RGBA)  # type: ignore[assignment]
-        elif img_array.shape[2] == 4:
-            # BGRA - convert to RGBA
-            rgba_array = cv2.cvtColor(img_array, cv2.COLOR_BGRA2RGBA)  # type: ignore[assignment]
-        else:
-            raise ValueError(f"Unexpected image shape: {img_array.shape}")
-
-        return rgba_array
+        return decode_image_as_rgba(image_bytes)  # type: ignore[return-value]
     except Exception as e:
         raise ValueError(f"Failed to decode image data: {e}") from e
 
@@ -374,7 +345,6 @@ class DataURI(BaseModel):
             # Get decoded data (handles base64 decoding if needed)
             image_bytes = self.decoded_data
 
-            # Decode image bytes to RGBA using cv2
             rgba_array = _decode_image_to_rgba(image_bytes)
 
             # Convert to requested format
