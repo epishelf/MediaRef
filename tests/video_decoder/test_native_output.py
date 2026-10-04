@@ -12,7 +12,7 @@ from mediaref.video_decoder import PyAVVideoDecoder  # noqa: E402
 @pytest.fixture(params=["pyav", "tensorcodec"])
 def backend(request):
     if request.param == "tensorcodec":
-        pytest.importorskip("tensorcodec")
+        pytest.importorskip("tensorcodec_av")
     return request.param
 
 

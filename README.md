@@ -61,7 +61,7 @@ See [API Reference](docs/API.md) for full details — `DataURI`, `batch_decode`,
 ## Installation
 
 ```bash
-pip install mediaref                  # core: TensorCodec image + CPU video decoding, cloud-storage URIs (fsspec)
+pip install mediaref                  # core: TensorCodec image (+ CPU video where available), cloud-storage URIs (fsspec)
 pip install 'mediaref[pyav]'          # legacy PyAV backend; select decoder='pyav'
 pip install 'mediaref[torchcodec]'    # + TorchCodec 0.16+ image/video (Python 3.10+)
 pip install 'mediaref[hf]'            # + HuggingFace datasets feature registration
@@ -73,11 +73,12 @@ For uv: `uv add 'mediaref[torchcodec,hf]'`. The `video` extra is kept for compat
 MediaRef depends on `opencv-python-headless`. If you need OpenCV's GUI functions (`cv2.imshow` etc.), replace it: `pip uninstall opencv-python-headless && pip install opencv-python`. Both packages provide `cv2`; keep only one installed, and repeat the swap if reinstalling MediaRef brings the headless package back. MediaRef follows [semantic versioning](https://semver.org/); the wire schema (`uri`, `pts_ns`) is frozen for the life of Spec 1.x.
 
 **Default image and video backend: [TensorCodec](https://github.com/MilkClouds/tensorcodec).** Images decode through
-TensorCodec's `decode_image` (OpenCV 4.13+): JPEG, PNG, WebP, GIF and AVIF, with EXIF/AVIF orientation applied.
-`ref.to_ndarray()` and `batch_decode(refs)` use TensorCodec's CPU playback selection and NumPy output for video. TensorCodec 0.1.4+
-bundles FFmpeg in Linux (glibc 2.17+) and macOS 14+ wheels for x86_64/ARM64.
-Other platforms require a source build with Rust and FFmpeg 7 headers, or the
-optional PyAV backend: install `mediaref[pyav]` and pass `decoder="pyav"`.
+TensorCodec's `decode_image` (OpenCV): JPEG, PNG, WebP, GIF, AVIF and BMP, with EXIF/AVIF orientation applied.
+`ref.to_ndarray()` and `batch_decode(refs)` use TensorCodec's CPU playback selection and NumPy output for video.
+MediaRef installs on every platform, Windows and Intel macOS included. TensorCodec's video decoder comes from
+`tensorcodec-av`, which bundles FFmpeg and is installed automatically on Linux x86_64/aarch64 (glibc 2.17+) and
+macOS 14+ arm64. Elsewhere, images work as usual and the default video decoder raises an `ImportError`; install
+`mediaref[pyav]` and pass `decoder="pyav"` (or use `mediaref[torchcodec]` with `decoder="torchcodec"`).
 Native grayscale/depth output (`format="native"`) works with TensorCodec and PyAV. Historical benchmark
 numbers above were measured with PyAV, not TensorCodec.
 

@@ -34,13 +34,19 @@ class TestInternalRGBAHandling:
         assert decoded_rgba.dtype == sample_rgba_array.dtype
         np.testing.assert_array_equal(decoded_rgba, sample_rgba_array)
 
-    def test_load_bmp_unsupported(self, sample_rgba_array: npt.NDArray[np.uint8]):
-        """TensorCodec's image decoder does not read BMP."""
+    def test_load_bmp_as_rgba_lossless(self, sample_rgba_array: npt.NDArray[np.uint8]):
+        """Test that BMP encoding/decoding via load_image_as_rgba is lossless."""
+        # Create data URI from RGBA array
         rgb_array = cv2.cvtColor(sample_rgba_array, cv2.COLOR_RGBA2RGB)
         data_uri = DataURI.from_image(rgb_array, format="bmp").uri
 
-        with pytest.raises(ValueError, match="Unsupported or unrecognized image format"):
-            load_image_as_rgba(data_uri)
+        # Decode using internal function
+        decoded_rgba = load_image_as_rgba(data_uri)
+
+        # Verify lossless roundtrip
+        assert decoded_rgba.shape == sample_rgba_array.shape
+        assert decoded_rgba.dtype == sample_rgba_array.dtype
+        np.testing.assert_array_equal(decoded_rgba, sample_rgba_array)
 
     def test_load_jpeg_as_rgba_lossy(self, sample_rgba_array: npt.NDArray[np.uint8]):
         """Test that JPEG encoding/decoding via load_image_as_rgba handles lossy compression."""

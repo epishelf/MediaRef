@@ -11,7 +11,7 @@ import fsspec
 import numpy as np
 import pytest
 
-pytest.importorskip("tensorcodec")
+pytest.importorskip("tensorcodec_av")
 
 
 @pytest.fixture(scope="module")

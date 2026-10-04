@@ -224,7 +224,7 @@ class MediaRef(BaseModel):
             >>> rgb = ref.to_ndarray(format="rgb")  # Default RGB format
             >>>
             >>> ref = MediaRef(uri="video.mp4", pts_ns=1_000_000_000)
-            >>> frame = ref.to_ndarray()  # Requires: pip install mediaref[video]
+            >>> frame = ref.to_ndarray()  # TensorCodec video (tensorcodec-av)
         """
         if format == "native":
             from .batch import batch_decode

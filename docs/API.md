@@ -100,7 +100,7 @@ For embedding media bytes directly inside a `MediaRef`. Useful for self-containe
 - `quality`: JPEG quality 1–100 (ignored for PNG/BMP).
 - `input_format`: input channel order for numpy arrays. `"rgb"` (default), `"bgr"`, `"rgba"`, `"bgra"`. **Required as `"bgr"`** when passing the result of `cv2.imread`, which returns BGR. Ignored for `PIL.Image`.
 
-PNG preserves alpha; JPEG and BMP drop it. Decoding uses TensorCodec, which does not read BMP yet, so BMP data URIs cannot be converted back with `to_ndarray()`.
+PNG preserves alpha; JPEG and BMP drop it.
 
 `DataURI.from_file(path, format=None) -> DataURI` — read raw bytes from disk and wrap.
 
@@ -215,14 +215,13 @@ use `to_ndarray`, not `to_pil_image`, for native output.
 | Output | NumPy CPU arrays | NumPy CPU arrays | Torch tensors converted to host NumPy |
 | Install | `mediaref` | `mediaref[pyav]` | `mediaref[torchcodec]` |
 | Python | 3.10+ | 3.10+ | 3.10+ |
-| FFmpeg | Bundled in Linux (glibc 2.17+) and macOS 14+ x86_64/ARM64 wheels | Bundled by PyAV | Compatible shared FFmpeg required |
+| FFmpeg | Bundled in `tensorcodec-av` wheels for Linux x86_64/aarch64 (glibc 2.17+) and macOS 14+ arm64; elsewhere use PyAV or TorchCodec | Bundled by PyAV | Compatible shared FFmpeg required |
 | Scope | 0.1.4+: CPU SDR/HDR RGB, rotation and uint16; value-preserving native output (gray, gray12le, gray16le/be, rgb24, rgba); exact seeking; one FFmpeg thread by default | Legacy RGB and value-preserving native output | CPU/CUDA, transforms and HDR when supported |
 | Sources | Paths, bytes, file-likes, fsspec URIs | Paths, file-likes, fsspec URIs | Paths, bytes, file-likes, fsspec URIs |
 
 All backends follow [playback semantics](playback_semantics.md). Pixel conversion
-can differ slightly between FFmpeg builds. TensorCodec source builds on other
-platforms require Rust, libclang and FFmpeg 7 development headers/libraries;
-use the explicit PyAV backend when those are unavailable.
+can differ slightly between FFmpeg builds. Without `tensorcodec-av`, the default
+backend raises `ImportError` naming the PyAV and TorchCodec alternatives.
 
 `TensorCodecVideoDecoder` and `TorchCodecVideoDecoder` inherit the shared
 `CodecVideoDecoder` adapter, which implements cache leases, fsspec ownership,
@@ -246,7 +245,7 @@ frames = batch_decode(
 
 ### Image decoders
 
-TensorCodec's `decode_image` is the default. It decodes JPEG, PNG, WebP, GIF and AVIF through OpenCV 4.13+ and applies EXIF (JPEG/PNG/WebP) and AVIF orientation; BMP, TIFF, HEIC and animated PNG are not supported. Install `mediaref[torchcodec]` to use TorchCodec 0.16+ instead, which also decodes HEIC without loading FFmpeg:
+TensorCodec's `decode_image` is the default. It decodes JPEG, PNG, WebP, GIF, AVIF and BMP through OpenCV on every platform and applies EXIF (JPEG/PNG/WebP) and AVIF orientation; TIFF, HEIC and animated PNG are not supported. Install `mediaref[torchcodec]` to use TorchCodec 0.16+ instead, which also decodes HEIC without loading FFmpeg:
 
 ```python
 image = MediaRef(uri="s3://bucket/high-bit-depth.png").to_ndarray(

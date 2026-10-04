@@ -478,11 +478,12 @@ class TestDataURIRoundtrip:
 
         np.testing.assert_array_equal(sample_rgb, restored_rgb)
 
-    def test_bmp_decode_unsupported(self, sample_rgb: npt.NDArray[np.uint8]):
-        """BMP encodes, but TensorCodec's image decoder does not read BMP."""
+    def test_bmp_lossless_roundtrip(self, sample_rgb: npt.NDArray[np.uint8]):
+        """Test BMP encoding is lossless."""
         data_uri = DataURI.from_image(sample_rgb, format="bmp")
-        with pytest.raises(ValueError, match="Unsupported or unrecognized image format"):
-            data_uri.to_ndarray()
+        restored_rgb = data_uri.to_ndarray()
+
+        np.testing.assert_array_equal(sample_rgb, restored_rgb)
 
     def test_jpeg_lossy_roundtrip(self, sample_rgb: npt.NDArray[np.uint8]):
         """Test JPEG encoding is lossy but close."""

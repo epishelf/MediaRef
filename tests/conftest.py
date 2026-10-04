@@ -197,7 +197,9 @@ def pytest_configure(config):
     """Register custom markers."""
     config.addinivalue_line("markers", "network: tests requiring network access")
     config.addinivalue_line("markers", "pyav: tests requiring the optional PyAV backend")
-    config.addinivalue_line("markers", "tensorcodec: tests requiring the default TensorCodec backend")
+    config.addinivalue_line(
+        "markers", "tensorcodec: tests requiring the default TensorCodec video backend (tensorcodec-av)"
+    )
     config.addinivalue_line("markers", "slow: slow tests (batch processing, large files)")
     config.addinivalue_line("markers", "integration: integration tests")
     config.addinivalue_line("markers", "performance: performance benchmark tests")
@@ -215,8 +217,8 @@ def pytest_collection_modifyitems(config, items):
 
     skip_pyav = pytest.mark.skip(reason="Optional PyAV backend not installed")
 
-    tensorcodec_available = importlib.util.find_spec("tensorcodec") is not None
-    skip_tensorcodec = pytest.mark.skip(reason="Default TensorCodec backend not installed")
+    tensorcodec_available = importlib.util.find_spec("tensorcodec_av") is not None
+    skip_tensorcodec = pytest.mark.skip(reason="TensorCodec video backend (tensorcodec-av) not installed")
 
     for item in items:
         if "tensorcodec" in item.keywords and not tensorcodec_available:

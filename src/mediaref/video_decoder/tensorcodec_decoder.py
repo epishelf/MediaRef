@@ -1,5 +1,6 @@
 """CPU codec adapter with NumPy output and no Torch dependency."""
 
+import importlib.util
 from typing import Any, ClassVar
 
 import numpy as np
@@ -7,6 +8,11 @@ from tensorcodec.decoders import VideoDecoder
 
 from ..resource_cache import ResourceCache
 from .codec_decoder import CodecVideoDecoder, _DecoderState
+
+# tensorcodec itself installs everywhere (image codecs); its video decoder needs the
+# platform-specific tensorcodec-av extension, so fail at import rather than on first decode.
+if importlib.util.find_spec("tensorcodec_av") is None:
+    raise ImportError("tensorcodec-av is not installed")
 
 
 class TensorCodecVideoDecoder(CodecVideoDecoder):

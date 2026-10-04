@@ -5,10 +5,10 @@ import os
 import re
 from pathlib import Path
 
-spec = importlib.util.find_spec("tensorcodec")
-libs = Path(spec.origin).parent.parent / "tensorcodec.libs"
+spec = importlib.util.find_spec("tensorcodec_av")  # FFmpeg ships in tensorcodec-av since 0.3
+libs = Path(spec.origin).parent.parent / "tensorcodec_av.libs"
 if not libs.is_dir():
-    raise RuntimeError("Expected an installed TensorCodec wheel with bundled FFmpeg")
+    raise RuntimeError("Expected an installed tensorcodec-av wheel with bundled FFmpeg")
 for library in libs.glob("lib*.so.*"):
     match = re.fullmatch(r"(lib[^-]+)-[0-9a-f]+(\.so\.\d+)", library.name)
     if match and match[1] in {"libavcodec", "libavformat", "libavutil", "libswscale", "libswresample"}:
