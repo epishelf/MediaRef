@@ -10,7 +10,6 @@ from fractions import Fraction
 from typing import Any, List, Mapping, Optional
 
 import av
-import cv2
 import numpy as np
 import numpy.typing as npt
 
@@ -86,8 +85,7 @@ def _convert_av_frames_to_nchw(av_frames: List[av.VideoFrame]) -> List[npt.NDArr
     frames = []
     for frame in av_frames:
         rgba_array = _frame_to_rgba(frame, reformatter)
-        rgb_array = cv2.cvtColor(rgba_array, cv2.COLOR_RGBA2RGB)
-        frame_nchw = np.transpose(rgb_array, (2, 0, 1)).astype(np.uint8)
+        frame_nchw = np.transpose(rgba_array[:, :, :3], (2, 0, 1)).astype(np.uint8)
         frames.append(frame_nchw)
     return frames
 

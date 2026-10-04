@@ -124,6 +124,37 @@ def resolve_video_source(uri: str) -> str:
 
 
 # ============================================================================
+# Color Conversion
+# ============================================================================
+
+# OpenCV's RGB->GRAY weights; integer images use its 15-bit fixed point (round(w * 2**15)).
+_GRAY_WEIGHTS = (0.299, 0.587, 0.114)
+_GRAY_FIXED = (9798, 19235, 3735)
+
+
+def rgba_to_format(rgba: npt.NDArray[Any], format: str) -> npt.NDArray[Any]:
+    """Convert an RGBA (H, W, 4) array to rgb/bgr/rgba/bgra (H, W, C) or gray (H, W), keeping the dtype."""
+    if format == "rgba":
+        return rgba
+    if format == "rgb":
+        return np.ascontiguousarray(rgba[..., :3])
+    if format == "bgr":
+        return np.ascontiguousarray(rgba[..., 2::-1])
+    if format == "bgra":
+        return np.ascontiguousarray(rgba[..., [2, 1, 0, 3]])
+    if format == "gray":
+        r, g, b = rgba[..., 0], rgba[..., 1], rgba[..., 2]
+        if np.issubdtype(rgba.dtype, np.integer):
+            wide = np.uint32 if rgba.dtype.itemsize <= 2 else np.int64
+            cr, cg, cb = _GRAY_FIXED
+            gray = (r.astype(wide) * cr + g.astype(wide) * cg + b.astype(wide) * cb + (1 << 14)) >> 15
+            return gray.astype(rgba.dtype)
+        wr, wg, wb = (rgba.dtype.type(w) for w in _GRAY_WEIGHTS)
+        return r * wr + g * wg + b * wb
+    raise ValueError(f"Unsupported format: {format}. Must be one of: rgb, bgr, rgba, bgra, gray")
+
+
+# ============================================================================
 # Image Loading
 # ============================================================================
 

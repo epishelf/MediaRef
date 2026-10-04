@@ -43,7 +43,7 @@ _pixel = DataURI.from_uri(
 ).to_ndarray(format="rgba")
 assert _pixel.shape == (1, 1, 4), _pixel.shape
 
-# cleanup_cache must be safe without the [video] extra.
+# cleanup_cache must be safe without any optional video backend.
 cleanup_cache()
 
 # CLI entry point is installed.

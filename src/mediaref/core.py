@@ -4,13 +4,13 @@ import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Mapping, Optional, Union
 
-import cv2
 import numpy as np
 import numpy.typing as npt
 import PIL.Image
 from pydantic import BaseModel, BeforeValidator, Field
 
 from ._internal import is_cloud_uri as _is_cloud_uri
+from ._internal import rgba_to_format
 
 if TYPE_CHECKING:
     from .data_uri import DataURI
@@ -246,18 +246,7 @@ class MediaRef(BaseModel):
             storage_options=storage_options,
         )
 
-        CONVERSION_MAP = {
-            "rgb": cv2.COLOR_RGBA2RGB,
-            "bgr": cv2.COLOR_RGBA2BGR,
-            "bgra": cv2.COLOR_RGBA2BGRA,
-            "gray": cv2.COLOR_RGBA2GRAY,
-        }
-        if format == "rgba":
-            return rgba
-        if format in CONVERSION_MAP:
-            return cv2.cvtColor(rgba, CONVERSION_MAP[format])  # type: ignore[return-value]
-
-        raise ValueError(f"Unsupported format: {format}. Must be one of: rgb, bgr, rgba, bgra, gray")
+        return rgba_to_format(rgba, format)
 
     def to_pil_image(
         self,

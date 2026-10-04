@@ -16,7 +16,7 @@ cd mediaref
 uv sync --all-extras --all-groups
 
 # Or with pip:
-pip install -e ".[video,pyav,torchcodec,hf]"
+pip install -e ".[pyav,torchcodec,hf]"
 pip install ipython pytest pytest-cov ruff
 ```
 

@@ -2,7 +2,6 @@
 
 from pathlib import Path
 
-import cv2
 import numpy as np
 import PIL.Image
 import PIL.ImageOps
@@ -100,7 +99,7 @@ def test_animated_gif_returns_first_frame(tmp_path: Path):
 def test_16bit_png_scales_to_uint8_or_keeps_uint16(tmp_path: Path):
     gray16 = (np.arange(60, dtype=np.uint16).reshape(6, 10) * 1000).astype(np.uint16)
     path = tmp_path / "gray16.png"
-    cv2.imwrite(str(path), gray16)
+    PIL.Image.frombytes("I;16", (gray16.shape[1], gray16.shape[0]), gray16.astype("<u2").tobytes()).save(path)
     ref = MediaRef(uri=str(path))
 
     scaled = ref.to_ndarray(format="gray")

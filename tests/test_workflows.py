@@ -6,6 +6,7 @@ These tests verify end-to-end workflows and interactions between components.
 from pathlib import Path
 
 import numpy as np
+import PIL.Image
 import pytest
 
 from mediaref import DataURI, MediaRef, batch_decode, cleanup_cache
@@ -115,11 +116,9 @@ class TestEndToEndWorkflows:
         test_image.parent.mkdir(parents=True)
 
         # Create a simple test image
-        import cv2
-
         img = np.zeros((48, 64, 3), dtype=np.uint8)
-        img[:, :] = [255, 0, 0]  # Blue in BGR
-        cv2.imwrite(str(test_image), img)
+        img[:, :] = [0, 0, 255]  # Blue in RGB
+        PIL.Image.fromarray(img).save(test_image)
 
         # 2. Create relative MediaRef
         relative_ref = MediaRef(uri="images/test.png")

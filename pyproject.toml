@@ -28,8 +28,7 @@ dependencies = [
     "pydantic>=2.0",   # Pydantic v2 has breaking changes on APIs
     "numpy",
     "Pillow>=9.4.0",   # to_pil_image() and PIL.Image inputs
-    "opencv-python-headless>=4.12",  # no cv2 GUI use; same distribution and bound as tensorcodec[images]
-    # Image codecs install everywhere; video pulls tensorcodec-av where it has wheels.
+    # Image codecs (via OpenCV) install everywhere; video pulls tensorcodec-av where it has wheels.
     "tensorcodec[images]>=0.3,<0.4",
     "loguru",
     "packaging>=21.0",
@@ -40,9 +39,6 @@ dependencies = [
 mediaref = "mediaref._cli:main"
 
 [project.optional-dependencies]
-video = [
-    "tensorcodec[images]>=0.3,<0.4",  # kept for compatibility; TensorCodec is a core dependency
-]
 pyav = [
     "av>=15.0",  # FFmpeg 7.0 support
 ]

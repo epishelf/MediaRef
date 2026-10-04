@@ -98,7 +98,7 @@ For embedding media bytes directly inside a `MediaRef`. Useful for self-containe
 - `image`: a `numpy.ndarray` or `PIL.Image`.
 - `format`: output media format — `"png"`, `"jpeg"`, or `"bmp"`.
 - `quality`: JPEG quality 1–100 (ignored for PNG/BMP).
-- `input_format`: input channel order for numpy arrays. `"rgb"` (default), `"bgr"`, `"rgba"`, `"bgra"`. **Required as `"bgr"`** when passing the result of `cv2.imread`, which returns BGR. Ignored for `PIL.Image`.
+- `input_format`: input channel order for numpy arrays. `"rgb"` (default), `"bgr"`, `"rgba"`, `"bgra"`. **Required as `"bgr"`** for BGR arrays, such as the result of `cv2.imread` in your own OpenCV code. Ignored for `PIL.Image`.
 
 PNG preserves alpha; JPEG and BMP drop it.
 
@@ -111,15 +111,14 @@ PNG preserves alpha; JPEG and BMP drop it.
 ```python
 from mediaref import MediaRef, DataURI
 from PIL import Image
-import cv2
 import numpy as np
 
 # numpy RGB
 rgb = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
 ref = MediaRef(uri=DataURI.from_image(rgb, format="png"))
 
-# OpenCV BGR — input_format is REQUIRED
-bgr = cv2.imread("photo.jpg")
+# BGR (e.g. cv2.imread in your own OpenCV code) — input_format is REQUIRED
+bgr = rgb[..., ::-1]
 ref = MediaRef(uri=DataURI.from_image(bgr, format="png", input_format="bgr"))
 
 # PIL.Image

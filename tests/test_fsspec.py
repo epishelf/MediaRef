@@ -6,11 +6,12 @@ offline — no S3, no GCS, no network.
 
 from __future__ import annotations
 
+import io
 
-import cv2
 import fsspec
 import numpy as np
 import numpy.typing as npt
+import PIL.Image
 import pytest
 
 from mediaref import MediaRef, batch_decode, cleanup_cache
@@ -53,11 +54,10 @@ def _put_bytes(uri: str, data: bytes) -> None:
 
 
 def _png_bytes(rgb_image: npt.NDArray[np.uint8]) -> bytes:
-    """Encode an RGB array to PNG bytes via cv2."""
-    bgr = cv2.cvtColor(rgb_image, cv2.COLOR_RGB2BGR)
-    success, buf = cv2.imencode(".png", bgr)
-    assert success
-    return buf.tobytes()
+    """Encode an RGB array to PNG bytes via Pillow."""
+    buffer = io.BytesIO()
+    PIL.Image.fromarray(rgb_image).save(buffer, format="PNG")
+    return buffer.getvalue()
 
 
 # ---------------------------------------------------------------------------

@@ -1,14 +1,15 @@
 """Shared test fixtures for MediaRef test suite."""
 
 import base64
+import io
 import importlib.util
 import shutil
 import subprocess
 from pathlib import Path
 
-import cv2
 import numpy as np
 import numpy.typing as npt
+import PIL.Image
 import pytest
 
 # ============================================================================
@@ -18,15 +19,15 @@ import pytest
 
 @pytest.fixture
 def sample_image_file(tmp_path: Path) -> Path:
-    """Create a sample image file (48x64 BGR).
+    """Create a sample image file (48x64, solid blue).
 
     Returns:
         Path to the created PNG image file.
     """
     image_path = tmp_path / "test_image.png"
     test_image = np.zeros((48, 64, 3), dtype=np.uint8)
-    test_image[:, :, 0] = 255  # Blue channel (BGR format)
-    cv2.imwrite(str(image_path), test_image)
+    test_image[:, :, 2] = 255  # Blue channel (RGB format)
+    PIL.Image.fromarray(test_image).save(image_path)
     return image_path
 
 
@@ -41,7 +42,7 @@ def sample_image_files(tmp_path: Path) -> list[Path]:
     for i in range(3):
         image_path = tmp_path / f"test_image_{i}.png"
         test_image = np.full((48, 64, 3), i * 50, dtype=np.uint8)
-        cv2.imwrite(str(image_path), test_image)
+        PIL.Image.fromarray(test_image).save(image_path)
         images.append(image_path)
     return images
 
@@ -168,13 +169,9 @@ def sample_data_uri(sample_rgba_array: npt.NDArray[np.uint8]) -> str:
     Returns:
         Data URI string (PNG format).
     """
-    # Convert RGBA to BGRA for cv2 encoding (cv2 uses BGR format)
-    bgra_array = cv2.cvtColor(sample_rgba_array, cv2.COLOR_RGBA2BGRA)
-    success, encoded = cv2.imencode(".png", bgra_array)
-    if not success:
-        raise ValueError("Failed to encode image")
-
-    base64_data = base64.b64encode(encoded.tobytes()).decode("utf-8")
+    buffer = io.BytesIO()
+    PIL.Image.fromarray(sample_rgba_array).save(buffer, format="PNG")
+    base64_data = base64.b64encode(buffer.getvalue()).decode("utf-8")
     return f"data:image/png;base64,{base64_data}"
 
 
