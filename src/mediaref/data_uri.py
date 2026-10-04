@@ -11,7 +11,7 @@ import numpy as np
 import numpy.typing as npt
 import PIL.Image
 from pydantic import BaseModel, Field, model_validator
-from tensorcodec.encoders import JpegEncoder
+from tensorcodec.encoders import JpegEncoder, PngEncoder
 
 from ._internal import decode_image_as_rgba, rgba_to_format
 
@@ -27,8 +27,8 @@ def _encode_image_to_bytes(
 ) -> bytes:
     """Encode an RGBA (H, W, 4) uint8 array; only PNG keeps the alpha channel.
 
-    JPEG uses TensorCodec's encoder. PNG (RGBA) and BMP (RGB) use Pillow: TensorCodec's
-    encoders take only 1 or 3 channels and have no BMP writer.
+    JPEG (RGB) and PNG (RGBA) use TensorCodec's encoders; BMP (RGB) uses Pillow, since
+    TensorCodec has no BMP writer.
     """
     try:
         if format == "jpeg":
@@ -39,14 +39,12 @@ def _encode_image_to_bytes(
             rgb_chw = np.ascontiguousarray(array[..., :3].transpose(2, 0, 1))
             return JpegEncoder(rgb_chw).to_tensor(quality=quality).tobytes()
         if format == "png":
-            pil_image, pil_format = PIL.Image.fromarray(np.ascontiguousarray(array)), "PNG"
-        elif format == "bmp":
-            pil_image, pil_format = PIL.Image.fromarray(np.ascontiguousarray(array[..., :3])), "BMP"
-        else:
-            raise ValueError(f"Unsupported format: {format}")
-        buffer = io.BytesIO()
-        pil_image.save(buffer, format=pil_format)
-        return buffer.getvalue()
+            return PngEncoder(np.ascontiguousarray(array.transpose(2, 0, 1))).to_tensor().tobytes()
+        if format == "bmp":
+            buffer = io.BytesIO()
+            PIL.Image.fromarray(np.ascontiguousarray(array[..., :3])).save(buffer, format="BMP")
+            return buffer.getvalue()
+        raise ValueError(f"Unsupported format: {format}")
     except ValueError:
         raise
     except Exception as e:
