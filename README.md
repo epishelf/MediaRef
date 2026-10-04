@@ -68,7 +68,9 @@ pip install 'mediaref[hf]'            # + HuggingFace datasets feature registrat
 pip install 'mediaref[torchcodec,hf]' # TorchCodec + HF extras
 ```
 
-For uv: `uv add 'mediaref[torchcodec,hf]'`. The `video` extra is kept for compatibility; TensorCodec is now a core dependency. MediaRef follows [semantic versioning](https://semver.org/); the wire schema (`uri`, `pts_ns`) is frozen for the life of Spec 1.x.
+For uv: `uv add 'mediaref[torchcodec,hf]'`. The `video` extra is kept for compatibility; TensorCodec is now a core dependency.
+
+MediaRef depends on `opencv-python-headless`. If you need OpenCV's GUI functions (`cv2.imshow` etc.), replace it: `pip uninstall opencv-python-headless && pip install opencv-python`. Both packages provide `cv2`; keep only one installed, and repeat the swap if reinstalling MediaRef brings the headless package back. MediaRef follows [semantic versioning](https://semver.org/); the wire schema (`uri`, `pts_ns`) is frozen for the life of Spec 1.x.
 
 **Default image and video backend: [TensorCodec](https://github.com/MilkClouds/tensorcodec).** Images decode through
 TensorCodec's `decode_image` (OpenCV 4.13+): JPEG, PNG, WebP, GIF and AVIF, with EXIF/AVIF orientation applied.

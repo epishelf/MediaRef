@@ -1,6 +1,6 @@
 rosbags>=0.11.0
 mediaref[video]>=0.4.1
-opencv-python
+opencv-python-headless
 numpy>=1.24.0
 av>=15.0.0
 tqdm

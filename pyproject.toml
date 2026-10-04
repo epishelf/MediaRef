@@ -28,10 +28,10 @@ dependencies = [
     "pydantic>=2.0",   # Pydantic v2 has breaking changes on APIs
     "numpy",
     "Pillow>=9.4.0",   # to_pil_image() and PIL.Image inputs
-    "opencv-python>=4.13",  # TensorCodec's image decoder requires OpenCV >= 4.13
+    "opencv-python-headless>=4.13",  # no cv2 GUI use; same distribution as tensorcodec[images]
     # TODO: raise the minimum to the release whose image decoders import without the native
     # extension (Windows / Intel macOS install).
-    "tensorcodec>=0.2,<0.3",  # image and default video decoding
+    "tensorcodec[images]>=0.2,<0.3",  # image and default video decoding
     "loguru",
     "packaging>=21.0",
     "fsspec[http]>=2024.2.0",  # uniform URI dispatch — http(s)/cloud all via fsspec
@@ -42,7 +42,7 @@ mediaref = "mediaref._cli:main"
 
 [project.optional-dependencies]
 video = [
-    "tensorcodec>=0.2,<0.3",  # kept for compatibility; TensorCodec is a core dependency
+    "tensorcodec[images]>=0.2,<0.3",  # kept for compatibility; TensorCodec is a core dependency
 ]
 pyav = [
     "av>=15.0",  # FFmpeg 7.0 support
