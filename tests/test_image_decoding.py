@@ -1,5 +1,6 @@
 """Tests for the default TensorCodec image decoder."""
 
+from importlib.metadata import version
 from pathlib import Path
 
 import numpy as np
@@ -9,6 +10,9 @@ import pytest
 
 from mediaref import MediaRef, batch_decode
 from mediaref.data_uri import DataURI
+
+# GIF/AVIF decoding needs OpenCV 4.12+, which NumPy 1.x environments do not get.
+OPENCV_GIF = tuple(int(v) for v in version("opencv-python-headless").split(".")[:2]) >= (4, 12)
 
 
 def _pattern(height: int = 6, width: int = 10) -> np.ndarray:
@@ -86,6 +90,7 @@ def test_lossless_webp_with_alpha(tmp_path: Path):
     np.testing.assert_array_equal(MediaRef(uri=str(path)).to_ndarray(format="rgba"), rgba)
 
 
+@pytest.mark.skipif(not OPENCV_GIF, reason="GIF decoding needs OpenCV 4.12+")
 def test_animated_gif_returns_first_frame(tmp_path: Path):
     frames = [PIL.Image.new("RGB", (8, 4), color) for color in ((255, 0, 0), (0, 0, 255))]
     path = tmp_path / "animated.gif"
