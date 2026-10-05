@@ -26,9 +26,10 @@ classifiers = [
 requires-python = ">=3.10"
 dependencies = [
     "pydantic>=2.0",   # Pydantic v2 has breaking changes on APIs
-    "numpy",
-    "Pillow>=9.4.0",   # When PIL.Image.ExifTags was introduced
-    "opencv-python",
+    "numpy>=2",  # required by TensorCodec 0.4
+    "Pillow>=9.4.0",   # to_pil_image() and PIL.Image inputs
+    # Image codecs (via OpenCV) install everywhere; video pulls tensorcodec-av where it has wheels.
+    "tensorcodec>=0.4,<0.5",
     "loguru",
     "packaging>=21.0",
     "fsspec[http]>=2024.2.0",  # uniform URI dispatch — http(s)/cloud all via fsspec
@@ -38,9 +39,6 @@ dependencies = [
 mediaref = "mediaref._cli:main"
 
 [project.optional-dependencies]
-video = [
-    "tensorcodec>=0.1.4,<0.3",
-]
 pyav = [
     "av>=15.0",  # FFmpeg 7.0 support
 ]

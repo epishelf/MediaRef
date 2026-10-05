@@ -1,19 +1,22 @@
 """DataURI class for handling data URI encoding and decoding."""
 
 import base64
+import io
 import mimetypes
 from pathlib import Path
 from typing import Literal, Optional, Union
 from urllib.parse import quote, unquote, urlparse
 
-import cv2
 import numpy as np
 import numpy.typing as npt
 import PIL.Image
 from pydantic import BaseModel, Field, model_validator
+from tensorcodec.encoders import JpegEncoder, PngEncoder
+
+from ._internal import decode_image_as_rgba, rgba_to_format
 
 # ============================================================================
-# Internal image encoding/decoding functions (cv2-based for performance)
+# Internal image encoding/decoding
 # ============================================================================
 
 
@@ -22,81 +25,36 @@ def _encode_image_to_bytes(
     format: Literal["png", "jpeg", "bmp"],
     quality: Optional[int] = None,
 ) -> bytes:
-    """Encode RGBA numpy array to image bytes using cv2.
+    """Encode an RGBA (H, W, 4) uint8 array; only PNG keeps the alpha channel.
 
-    Args:
-        array: RGBA numpy array (H, W, 4)
-        format: Output format ('png', 'jpeg', or 'bmp')
-        quality: JPEG quality (1-100), ignored for PNG and BMP
-
-    Returns:
-        Encoded image bytes
-
-    Note:
-        PNG format preserves alpha channel. JPEG and BMP do not support alpha,
-        so alpha channel is dropped for those formats.
+    JPEG (RGB) and PNG (RGBA) use TensorCodec's encoders; BMP (RGB) uses Pillow, since
+    TensorCodec has no BMP writer.
     """
-    # Encode based on format
-    if format == "png":
-        # PNG supports alpha - convert RGBA to BGRA for cv2
-        bgra_array = cv2.cvtColor(array, cv2.COLOR_RGBA2BGRA)
-        success, encoded = cv2.imencode(".png", bgra_array)
-    elif format == "jpeg":
-        # JPEG doesn't support alpha - convert to BGR
-        bgr_array = cv2.cvtColor(array, cv2.COLOR_RGBA2BGR)
-        if quality is None:
-            quality = 85
-        if not (1 <= quality <= 100):
-            raise ValueError("JPEG quality must be between 1 and 100")
-        success, encoded = cv2.imencode(".jpg", bgr_array, [cv2.IMWRITE_JPEG_QUALITY, quality])
-    elif format == "bmp":
-        # BMP doesn't support alpha - convert to BGR
-        bgr_array = cv2.cvtColor(array, cv2.COLOR_RGBA2BGR)
-        success, encoded = cv2.imencode(".bmp", bgr_array)
-    else:
+    try:
+        if format == "jpeg":
+            if quality is None:
+                quality = 85
+            if not (1 <= quality <= 100):
+                raise ValueError("JPEG quality must be between 1 and 100")
+            rgb_chw = np.ascontiguousarray(array[..., :3].transpose(2, 0, 1))
+            return JpegEncoder(rgb_chw).to_tensor(quality=quality).tobytes()
+        if format == "png":
+            return PngEncoder(np.ascontiguousarray(array.transpose(2, 0, 1))).to_tensor().tobytes()
+        if format == "bmp":
+            buffer = io.BytesIO()
+            PIL.Image.fromarray(np.ascontiguousarray(array[..., :3])).save(buffer, format="BMP")
+            return buffer.getvalue()
         raise ValueError(f"Unsupported format: {format}")
-
-    if not success:
-        raise ValueError(f"Failed to encode image as {format}")
-
-    return encoded.tobytes()
+    except ValueError:
+        raise
+    except Exception as e:
+        raise ValueError(f"Failed to encode image as {format}: {e}") from e
 
 
 def _decode_image_to_rgba(image_bytes: bytes) -> npt.NDArray[np.uint8]:
-    """Decode image bytes to RGBA numpy array using cv2.
-
-    Args:
-        image_bytes: Encoded image data
-
-    Returns:
-        RGBA numpy array (H, W, 4)
-
-    Note:
-        If the image has an alpha channel, it is preserved.
-        If not, alpha channel is added with full opacity (255).
-    """
+    """Decode image bytes to RGBA (H, W, 4) with TensorCodec; opaque alpha is added if absent."""
     try:
-        nparr = np.frombuffer(image_bytes, np.uint8)
-        # Use IMREAD_UNCHANGED to preserve alpha channel if present
-        img_array = cv2.imdecode(nparr, cv2.IMREAD_UNCHANGED)
-
-        if img_array is None:
-            raise ValueError("Failed to decode image data")
-
-        # Convert to RGBA based on input format
-        if img_array.ndim == 2:
-            # Grayscale - convert to RGBA
-            rgba_array: npt.NDArray[np.uint8] = cv2.cvtColor(img_array, cv2.COLOR_GRAY2RGBA)  # type: ignore[assignment]
-        elif img_array.shape[2] == 3:
-            # BGR - convert to RGBA
-            rgba_array = cv2.cvtColor(img_array, cv2.COLOR_BGR2RGBA)  # type: ignore[assignment]
-        elif img_array.shape[2] == 4:
-            # BGRA - convert to RGBA
-            rgba_array = cv2.cvtColor(img_array, cv2.COLOR_BGRA2RGBA)  # type: ignore[assignment]
-        else:
-            raise ValueError(f"Unexpected image shape: {img_array.shape}")
-
-        return rgba_array
+        return decode_image_as_rgba(image_bytes)  # type: ignore[return-value]
     except Exception as e:
         raise ValueError(f"Failed to decode image data: {e}") from e
 
@@ -262,7 +220,7 @@ class DataURI(BaseModel):
             >>> rgb_array = np.zeros((100, 100, 3), dtype=np.uint8)
             >>> data_uri = DataURI.from_image(rgb_array, format="png")
             >>>
-            >>> # BGR numpy array (e.g., from OpenCV)
+            >>> # BGR numpy array (e.g., from your own OpenCV code)
             >>> bgr_array = cv2.imread("image.jpg")
             >>> data_uri = DataURI.from_image(bgr_array, format="png", input_format="bgr")
         """
@@ -275,10 +233,10 @@ class DataURI(BaseModel):
             channels = image.shape[2]
             if channels == 3:
                 # Convert to RGBA based on input format
-                if input_format == "rgb":
-                    rgba_array = cv2.cvtColor(image, cv2.COLOR_RGB2RGBA)  # type: ignore[assignment]
-                elif input_format == "bgr":
-                    rgba_array = cv2.cvtColor(image, cv2.COLOR_BGR2RGBA)  # type: ignore[assignment]
+                if input_format in ("rgb", "bgr"):
+                    rgb = image if input_format == "rgb" else image[..., ::-1]
+                    opaque = np.full((*image.shape[:2], 1), 255, dtype=image.dtype)
+                    rgba_array = np.concatenate([rgb, opaque], axis=-1)
                 else:
                     raise ValueError(
                         f"Invalid input_format '{input_format}' for 3-channel array. Must be 'rgb' or 'bgr'"
@@ -288,7 +246,7 @@ class DataURI(BaseModel):
                 if input_format == "rgb" or input_format == "rgba":
                     rgba_array = image  # Assume RGBA
                 elif input_format == "bgr" or input_format == "bgra":
-                    rgba_array = cv2.cvtColor(image, cv2.COLOR_BGRA2RGBA)  # type: ignore[assignment]
+                    rgba_array = image[..., [2, 1, 0, 3]]
                 else:
                     raise ValueError(
                         f"Invalid input_format '{input_format}' for 4-channel array. "
@@ -374,22 +332,9 @@ class DataURI(BaseModel):
             # Get decoded data (handles base64 decoding if needed)
             image_bytes = self.decoded_data
 
-            # Decode image bytes to RGBA using cv2
             rgba_array = _decode_image_to_rgba(image_bytes)
 
-            # Convert to requested format
-            CONVERSION_MAP = {
-                "rgb": cv2.COLOR_RGBA2RGB,
-                "bgr": cv2.COLOR_RGBA2BGR,
-                "bgra": cv2.COLOR_RGBA2BGRA,
-                "gray": cv2.COLOR_RGBA2GRAY,
-            }
-            if format == "rgba":
-                return rgba_array
-            if format in CONVERSION_MAP:
-                return cv2.cvtColor(rgba_array, CONVERSION_MAP[format])  # type: ignore[return-value]
-
-            raise ValueError(f"Unsupported format: {format}. Must be one of: rgb, bgr, rgba, bgra, gray")
+            return rgba_to_format(rgba_array, format)
         except ValueError:
             # Re-raise ValueError (format errors or conversion errors)
             raise

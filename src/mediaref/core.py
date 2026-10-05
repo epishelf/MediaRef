@@ -4,13 +4,13 @@ import warnings
 from pathlib import Path
 from typing import TYPE_CHECKING, Annotated, Any, Literal, Mapping, Optional, Union
 
-import cv2
 import numpy as np
 import numpy.typing as npt
 import PIL.Image
 from pydantic import BaseModel, BeforeValidator, Field
 
 from ._internal import is_cloud_uri as _is_cloud_uri
+from ._internal import rgba_to_format
 
 if TYPE_CHECKING:
     from .data_uri import DataURI
@@ -192,7 +192,7 @@ class MediaRef(BaseModel):
         *,
         decoder: Literal["tensorcodec", "pyav", "torchcodec"] = "tensorcodec",
         decoder_options: Optional[Mapping[str, Any]] = None,
-        image_decoder: Literal["pillow", "torchcodec"] = "pillow",
+        image_decoder: Literal["tensorcodec", "torchcodec"] = "tensorcodec",
         image_decoder_options: Optional[Mapping[str, Any]] = None,
         storage_options: Optional[Mapping[str, Any]] = None,
     ) -> npt.NDArray[np.generic]:
@@ -210,7 +210,7 @@ class MediaRef(BaseModel):
             decoder: Video decoder backend. Ignored for image refs.
             decoder_options: Options passed to the video decoder constructor.
             image_decoder: Image decoder backend. Ignored for video refs.
-            image_decoder_options: Options passed to TorchCodec's ``decode_image``.
+            image_decoder_options: Options passed to the image backend's ``decode_image``.
             storage_options: Credentials and backend options passed to fsspec.
         Returns:
             Numpy ndarray in requested format
@@ -224,7 +224,7 @@ class MediaRef(BaseModel):
             >>> rgb = ref.to_ndarray(format="rgb")  # Default RGB format
             >>>
             >>> ref = MediaRef(uri="video.mp4", pts_ns=1_000_000_000)
-            >>> frame = ref.to_ndarray()  # Requires: pip install mediaref[video]
+            >>> frame = ref.to_ndarray()  # TensorCodec video (tensorcodec-av)
         """
         if format == "native":
             from .batch import batch_decode
@@ -246,18 +246,7 @@ class MediaRef(BaseModel):
             storage_options=storage_options,
         )
 
-        CONVERSION_MAP = {
-            "rgb": cv2.COLOR_RGBA2RGB,
-            "bgr": cv2.COLOR_RGBA2BGR,
-            "bgra": cv2.COLOR_RGBA2BGRA,
-            "gray": cv2.COLOR_RGBA2GRAY,
-        }
-        if format == "rgba":
-            return rgba
-        if format in CONVERSION_MAP:
-            return cv2.cvtColor(rgba, CONVERSION_MAP[format])  # type: ignore[return-value]
-
-        raise ValueError(f"Unsupported format: {format}. Must be one of: rgb, bgr, rgba, bgra, gray")
+        return rgba_to_format(rgba, format)
 
     def to_pil_image(
         self,
@@ -265,7 +254,7 @@ class MediaRef(BaseModel):
         *,
         decoder: Literal["tensorcodec", "pyav", "torchcodec"] = "tensorcodec",
         decoder_options: Optional[Mapping[str, Any]] = None,
-        image_decoder: Literal["pillow", "torchcodec"] = "pillow",
+        image_decoder: Literal["tensorcodec", "torchcodec"] = "tensorcodec",
         image_decoder_options: Optional[Mapping[str, Any]] = None,
         storage_options: Optional[Mapping[str, Any]] = None,
     ) -> PIL.Image.Image:
@@ -279,7 +268,7 @@ class MediaRef(BaseModel):
             decoder: Video decoder backend. Ignored for image refs.
             decoder_options: Options passed to the video decoder constructor.
             image_decoder: Image decoder backend. Ignored for video refs.
-            image_decoder_options: Options passed to TorchCodec's ``decode_image``.
+            image_decoder_options: Options passed to the image backend's ``decode_image``.
             storage_options: Credentials and backend options passed to fsspec.
 
         Returns:
@@ -318,7 +307,7 @@ class MediaRef(BaseModel):
         *,
         decoder: Literal["tensorcodec", "pyav", "torchcodec"] = "tensorcodec",
         decoder_options: Optional[Mapping[str, Any]] = None,
-        image_decoder: Literal["pillow", "torchcodec"] = "pillow",
+        image_decoder: Literal["tensorcodec", "torchcodec"] = "tensorcodec",
         image_decoder_options: Optional[Mapping[str, Any]] = None,
         storage_options: Optional[Mapping[str, Any]] = None,
     ) -> npt.NDArray[np.generic]:

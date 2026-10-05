@@ -43,10 +43,6 @@ jobs:
     - name: Install PyAV and HuggingFace extras
       run: uv sync --dev --extra pyav --extra hf
 
-    - name: Install default video backend on supported wheel platform
-      if: runner.os == 'Linux' || runner.os == 'macOS'
-      run: uv sync --dev --extra video --extra pyav --extra hf
-
     - name: Install current CPU reference
       if: runner.os == 'Linux'
       run: uv pip install torch==2.14.1 torchcodec==0.17.0 --index-url https://download.pytorch.org/whl/cpu
@@ -71,7 +67,7 @@ jobs:
         with:
           python-version: '3.12'
       - run: sudo apt-get update && sudo apt-get install -y ffmpeg
-      - run: uv sync --dev --extra video
+      - run: uv sync --dev
       - name: Test default decoding without PyAV or Torch
         run: |
           uv run --no-sync python -c "import importlib.util; assert all(importlib.util.find_spec(n) is None for n in ('av', 'torch', 'torchcodec'))"

@@ -1,6 +1,6 @@
 rosbags>=0.11.0
-mediaref[video]>=0.4.1
-opencv-python
+mediaref
+opencv-python-headless  # used by these example scripts; MediaRef itself does not import cv2
 numpy>=1.24.0
 av>=15.0.0
 tqdm

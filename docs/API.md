@@ -44,18 +44,18 @@ ref = MediaRef(uri=DataURI.from_image(rgb, format="png"))
 
 ### Methods
 
-`to_ndarray(format="rgb", *, decoder="tensorcodec", decoder_options=None, image_decoder="pillow", image_decoder_options=None, storage_options=None) -> np.ndarray`
+`to_ndarray(format="rgb", *, decoder="tensorcodec", decoder_options=None, image_decoder="tensorcodec", image_decoder_options=None, storage_options=None) -> np.ndarray`
 - Loads the media as a numpy array in the requested format.
 - Formats: `"rgb"` (default), `"bgr"`, `"rgba"`, `"bgra"`, `"gray"`, and [`"native"`](#native-video-pixels) (video with TensorCodec or PyAV).
 - Returns shape: `(H, W, 3)` for RGB/BGR, `(H, W, 4)` for RGBA/BGRA, `(H, W)` for grayscale.
 - For video URIs (`pts_ns is not None`), decodes the single frame at that timestamp.
 - `decoder` and `decoder_options` select and configure the video backend.
-- `image_decoder` selects Pillow (default) or TorchCodec 0.16+; `image_decoder_options` configures TorchCodec's `decode_image` call.
+- `image_decoder` selects TensorCodec (default) or TorchCodec 0.16+; `image_decoder_options` configures the backend's `decode_image` call.
 - `storage_options` is passed to fsspec for either media type.
 
-`to_pil_image(format="rgb", *, decoder="tensorcodec", decoder_options=None, image_decoder="pillow", image_decoder_options=None, storage_options=None) -> PIL.Image`
+`to_pil_image(format="rgb", *, decoder="tensorcodec", decoder_options=None, image_decoder="tensorcodec", image_decoder_options=None, storage_options=None) -> PIL.Image`
 - Same as `to_ndarray` but returns a PIL Image. Formats: `"rgb"`, `"rgba"`, `"gray"`.
-- PIL output requires `uint8`; use `to_ndarray` when preserving TorchCodec `uint16` image or `float32` HDR video output.
+- PIL output requires `uint8`; use `to_ndarray` when preserving `uint16` image or `float32` HDR video output.
 
 `resolve_relative_path(base_path, on_unresolvable="warn") -> MediaRef`
 - Returns a new `MediaRef` with the relative path resolved against `base_path`.
@@ -98,7 +98,7 @@ For embedding media bytes directly inside a `MediaRef`. Useful for self-containe
 - `image`: a `numpy.ndarray` or `PIL.Image`.
 - `format`: output media format — `"png"`, `"jpeg"`, or `"bmp"`.
 - `quality`: JPEG quality 1–100 (ignored for PNG/BMP).
-- `input_format`: input channel order for numpy arrays. `"rgb"` (default), `"bgr"`, `"rgba"`, `"bgra"`. **Required as `"bgr"`** when passing the result of `cv2.imread`, which returns BGR. Ignored for `PIL.Image`.
+- `input_format`: input channel order for numpy arrays. `"rgb"` (default), `"bgr"`, `"rgba"`, `"bgra"`. **Required as `"bgr"`** for BGR arrays, such as the result of `cv2.imread` in your own OpenCV code. Ignored for `PIL.Image`.
 
 PNG preserves alpha; JPEG and BMP drop it.
 
@@ -111,15 +111,14 @@ PNG preserves alpha; JPEG and BMP drop it.
 ```python
 from mediaref import MediaRef, DataURI
 from PIL import Image
-import cv2
 import numpy as np
 
 # numpy RGB
 rgb = np.random.randint(0, 255, (100, 100, 3), dtype=np.uint8)
 ref = MediaRef(uri=DataURI.from_image(rgb, format="png"))
 
-# OpenCV BGR — input_format is REQUIRED
-bgr = cv2.imread("photo.jpg")
+# BGR (e.g. cv2.imread in your own OpenCV code) — input_format is REQUIRED
+bgr = rgb[..., ::-1]
 ref = MediaRef(uri=DataURI.from_image(bgr, format="png", input_format="bgr"))
 
 # PIL.Image
@@ -148,7 +147,7 @@ ref = MediaRef(uri=DataURI.from_file("photo.png"))
 ## `batch_decode`
 
 ```python
-batch_decode(refs, decoder="tensorcodec", *, output_format="rgb", decoder_options=None, image_decoder="pillow", image_decoder_options=None, storage_options=None, ...) -> list[np.ndarray]
+batch_decode(refs, decoder="tensorcodec", *, output_format="rgb", decoder_options=None, image_decoder="tensorcodec", image_decoder_options=None, storage_options=None, ...) -> list[np.ndarray]
 ```
 
 Decode many `MediaRef` video frames efficiently by grouping refs that share a URI, opening each container once, and seeking through the requested timestamps in order. Significantly faster than per-ref decoding when refs cluster on the same video file.
@@ -213,16 +212,15 @@ use `to_ndarray`, not `to_pil_image`, for native output.
 | | `"tensorcodec"` (default) | `"pyav"` | `"torchcodec"` |
 | --- | --- | --- | --- |
 | Output | NumPy CPU arrays | NumPy CPU arrays | Torch tensors converted to host NumPy |
-| Install | `mediaref[video]` | `mediaref[pyav]` | `mediaref[torchcodec]` |
+| Install | `mediaref` | `mediaref[pyav]` | `mediaref[torchcodec]` |
 | Python | 3.10+ | 3.10+ | 3.10+ |
-| FFmpeg | Bundled in Linux (glibc 2.17+) and macOS 14+ x86_64/ARM64 wheels | Bundled by PyAV | Compatible shared FFmpeg required |
+| FFmpeg | Bundled in `tensorcodec-av` wheels for Linux x86_64/aarch64 (glibc 2.17+) and macOS 14+ arm64; elsewhere use PyAV or TorchCodec | Bundled by PyAV | Compatible shared FFmpeg required |
 | Scope | 0.1.4+: CPU SDR/HDR RGB, rotation and uint16; value-preserving native output (gray, gray12le, gray16le/be, rgb24, rgba); exact seeking; one FFmpeg thread by default | Legacy RGB and value-preserving native output | CPU/CUDA, transforms and HDR when supported |
 | Sources | Paths, bytes, file-likes, fsspec URIs | Paths, file-likes, fsspec URIs | Paths, bytes, file-likes, fsspec URIs |
 
 All backends follow [playback semantics](playback_semantics.md). Pixel conversion
-can differ slightly between FFmpeg builds. TensorCodec source builds on other
-platforms require Rust, libclang and FFmpeg 7 development headers/libraries;
-use the explicit PyAV backend when those are unavailable.
+can differ slightly between FFmpeg builds. Without `tensorcodec-av`, the default
+backend raises `ImportError` naming the PyAV and TorchCodec alternatives.
 
 `TensorCodecVideoDecoder` and `TorchCodecVideoDecoder` inherit the shared
 `CodecVideoDecoder` adapter, which implements cache leases, fsspec ownership,
@@ -246,7 +244,7 @@ frames = batch_decode(
 
 ### Image decoders
 
-Pillow remains the default for compatibility. On Python 3.10+, install `mediaref[torchcodec]` to guarantee TorchCodec 0.16+, which can decode JPEG, PNG, WebP, GIF, AVIF, and HEIC without loading FFmpeg:
+TensorCodec's `decode_image` is the default. It decodes JPEG, PNG, WebP, GIF, AVIF and BMP through OpenCV on every platform and applies EXIF (JPEG/PNG/WebP) and AVIF orientation; TIFF, HEIC and animated PNG are not supported. Install `mediaref[torchcodec]` to use TorchCodec 0.16+ instead, which also decodes HEIC without loading FFmpeg:
 
 ```python
 image = MediaRef(uri="s3://bucket/high-bit-depth.png").to_ndarray(
@@ -256,7 +254,7 @@ image = MediaRef(uri="s3://bucket/high-bit-depth.png").to_ndarray(
 )
 ```
 
-MediaRef requests `RGB_ALPHA` internally so its existing `format=` conversion remains authoritative. Pass `output_dtype="auto"` to preserve 16-bit PNG/AVIF/HEIC data as `uint16`; the default is `uint8`. Animated or multi-image inputs use their first frame, matching MediaRef's single-image reference model. HEIC additionally requires `libheif`, as documented by TorchCodec. Local paths are passed directly; data URIs and fsspec sources are materialized as encoded bytes because TorchCodec's image entry point accepts paths, bytes, or tensors rather than file-like objects.
+MediaRef requests `RGB_ALPHA` internally so its existing `format=` conversion remains authoritative. Pass `output_dtype="auto"` to preserve 16-bit PNG/AVIF/HEIC data as `uint16`; the default is `uint8`, scaled from 16-bit sources. Animated or multi-image inputs use their first frame, matching MediaRef's single-image reference model. HEIC additionally requires `libheif`, as documented by TorchCodec. Local paths are passed directly; data URIs and fsspec sources are materialized as encoded bytes because both image entry points accept paths or bytes rather than file-like objects.
 
 `storage_options` is passed unchanged to fsspec and applies to every image or video URI in the call. Both decoder caches include these options in an opaque hash, so calls using different credentials or backend settings never share an open resource and secrets are not embedded in cache keys.
 

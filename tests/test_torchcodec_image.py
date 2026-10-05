@@ -94,15 +94,15 @@ def test_torchcodec_image_applies_exif_orientation(tmp_path: Path, fake_torchcod
     exif[274] = 6
     image.save(source, exif=exif)
 
-    pillow = MediaRef(uri=str(source)).to_ndarray()
+    default = MediaRef(uri=str(source)).to_ndarray()
     torchcodec = MediaRef(uri=str(source)).to_ndarray(image_decoder="torchcodec")
 
-    np.testing.assert_array_equal(torchcodec, pillow)
+    np.testing.assert_array_equal(torchcodec, default)
     assert torchcodec.shape == (4, 2, 3)
 
 
 def test_torchcodec_image_mode_is_owned_by_mediaref(sample_image_file: Path, fake_torchcodec_image):
-    with pytest.raises(ValueError, match="controls TorchCodec's image mode"):
+    with pytest.raises(ValueError, match="controls the image decoder's mode"):
         MediaRef(uri=str(sample_image_file)).to_ndarray(
             image_decoder="torchcodec",
             image_decoder_options={"mode": "GRAY"},

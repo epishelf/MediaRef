@@ -121,3 +121,30 @@ def test_torchcodec_video_availability_rejects_missing_ffmpeg():
         raise RuntimeError("FFmpeg is unavailable")
 
     assert not _torchcodec_video_available(get_ffmpeg_library_versions)
+
+
+def test_missing_tensorcodec_av_keeps_images_and_names_video_alternatives():
+    """Without tensorcodec-av (e.g. Windows), images decode and default video raises a clear ImportError."""
+    result = _run("""
+        import sys
+        sys.modules["tensorcodec_av"] = None
+
+        import numpy as np
+        from mediaref import DataURI, MediaRef, batch_decode
+
+        rgb = np.zeros((2, 3, 3), np.uint8)
+        assert MediaRef(uri=DataURI.from_image(rgb).uri).to_ndarray().shape == (2, 3, 3)
+
+        ref = MediaRef(uri="video.mp4", pts_ns=0)
+        for call in (ref.to_ndarray, lambda: batch_decode([ref])):
+            try:
+                call()
+            except ImportError as error:
+                assert "tensorcodec-av" in str(error), error
+                assert "mediaref[pyav]" in str(error), error
+            else:
+                raise AssertionError("default video decoding unexpectedly succeeded")
+        print("OK")
+    """)
+    assert result.returncode == 0, f"stdout={result.stdout!r} stderr={result.stderr!r}"
+    assert result.stdout.strip() == "OK"

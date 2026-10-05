@@ -45,10 +45,10 @@ def __getattr__(name: str):
             from .tensorcodec_decoder import TensorCodecVideoDecoder
         except ImportError as error:
             raise ImportError(
-                "The default TensorCodec decoder requires Python>=3.10 and the video extra. "
-                "Install with: pip install 'mediaref[video]'. "
-                "Linux x86_64/ARM64 wheels bundle FFmpeg; other platforms need a source build. "
-                "For the legacy backend install 'mediaref[pyav]' and select decoder='pyav'."
+                "The default TensorCodec video decoder requires tensorcodec-av, which MediaRef installs "
+                "automatically on Linux x86_64/aarch64 (glibc 2.17+) and macOS 14+ arm64 with CPython. "
+                "On other platforms (e.g. Windows, Intel macOS) install 'mediaref[pyav]' and pass "
+                "decoder='pyav', or install 'mediaref[torchcodec]' and pass decoder='torchcodec'."
             ) from error
         globals()[name] = TensorCodecVideoDecoder
         return TensorCodecVideoDecoder

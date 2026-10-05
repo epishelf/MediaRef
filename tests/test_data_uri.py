@@ -354,6 +354,14 @@ class TestDataURIFormats:
         assert data_uri.mimetype == "image/jpeg"
         assert data_uri.uri.startswith("data:image/jpeg;base64,")
 
+    def test_encoded_layouts(self, sample_rgb: npt.NDArray[np.uint8]):
+        """PNG stays RGBA (color type 6); BMP is 24-bit; JPEG has no alpha."""
+        png = DataURI.from_image(sample_rgb, format="png").decoded_data
+        assert png[25] == 6
+        bmp = DataURI.from_image(sample_rgb, format="bmp").decoded_data
+        assert int.from_bytes(bmp[28:30], "little") == 24
+        assert DataURI.from_image(sample_rgb, format="jpeg").decoded_data[:3] == b"\xff\xd8\xff"
+
     def test_format_bmp(self, sample_rgb: npt.NDArray[np.uint8]):
         """Test BMP format."""
         data_uri = DataURI.from_image(sample_rgb, format="bmp")
@@ -377,10 +385,7 @@ class TestDataURIFormats:
 
     def test_input_format_bgr(self, sample_rgb: npt.NDArray[np.uint8]):
         """Test input_format='bgr' correctly converts BGR to RGB."""
-        import cv2
-
-        # Convert RGB to BGR
-        bgr_array = cv2.cvtColor(sample_rgb, cv2.COLOR_RGB2BGR)
+        bgr_array = np.ascontiguousarray(sample_rgb[..., ::-1])
 
         # Create DataURI with input_format='bgr'
         data_uri = DataURI.from_image(bgr_array, format="png", input_format="bgr")
@@ -391,10 +396,7 @@ class TestDataURIFormats:
 
     def test_input_format_rgba(self, sample_rgb: npt.NDArray[np.uint8]):
         """Test input_format='rgba' with 4-channel RGBA array."""
-        import cv2
-
-        # Convert RGB to RGBA
-        rgba_array = cv2.cvtColor(sample_rgb, cv2.COLOR_RGB2RGBA)
+        rgba_array = np.dstack([sample_rgb, np.full(sample_rgb.shape[:2], 255, np.uint8)])
 
         # Create DataURI with input_format='rgba'
         data_uri = DataURI.from_image(rgba_array, format="png", input_format="rgba")
@@ -405,10 +407,7 @@ class TestDataURIFormats:
 
     def test_input_format_bgra(self, sample_rgb: npt.NDArray[np.uint8]):
         """Test input_format='bgra' with 4-channel BGRA array."""
-        import cv2
-
-        # Convert RGB to BGRA
-        bgra_array = cv2.cvtColor(sample_rgb, cv2.COLOR_RGB2BGRA)
+        bgra_array = np.dstack([sample_rgb[..., ::-1], np.full(sample_rgb.shape[:2], 255, np.uint8)])
 
         # Create DataURI with input_format='bgra'
         data_uri = DataURI.from_image(bgra_array, format="png", input_format="bgra")
@@ -424,9 +423,7 @@ class TestDataURIFormats:
 
     def test_input_format_invalid_4channel(self, sample_rgb: npt.NDArray[np.uint8]):
         """Test that invalid input_format for 4-channel array raises ValueError."""
-        import cv2
-
-        rgba_array = cv2.cvtColor(sample_rgb, cv2.COLOR_RGB2RGBA)
+        rgba_array = np.dstack([sample_rgb, np.full(sample_rgb.shape[:2], 255, np.uint8)])
         with pytest.raises(ValueError, match="Invalid input_format.*for 4-channel array"):
             DataURI.from_image(rgba_array, format="png", input_format="invalid")  # type: ignore
 
