@@ -68,7 +68,7 @@ pip install 'mediaref[hf]'            # + HuggingFace datasets feature registrat
 pip install 'mediaref[torchcodec,hf]' # TorchCodec + HF extras
 ```
 
-For uv: `uv add 'mediaref[torchcodec,hf]'`. TensorCodec is a core dependency, so there is no separate `video` extra. MediaRef requires Python 3.10+ and NumPy 2 (TensorCodec 0.4 does). MediaRef follows [semantic versioning](https://semver.org/); the wire schema (`uri`, `pts_ns`) is frozen for the life of Spec 1.x.
+For uv: `uv add 'mediaref[torchcodec,hf]'`. TensorCodec is a core dependency, so there is no separate `video` extra. MediaRef requires Python 3.10+. GIF and AVIF decoding need OpenCV 4.12+, which requires NumPy 2; with NumPy 1.x the resolver installs OpenCV 4.11 and those formats raise an error. MediaRef follows [semantic versioning](https://semver.org/); the wire schema (`uri`, `pts_ns`) is frozen for the life of Spec 1.x.
 
 **Default image and video backend: [TensorCodec](https://github.com/MilkClouds/tensorcodec).** Images decode through
 TensorCodec's `decode_image` (OpenCV): JPEG, PNG, WebP, GIF, AVIF and BMP, with EXIF/AVIF orientation applied.
